@@ -31,24 +31,18 @@ module Seize
     end
 
     def download : Bool
-      puts "🔍 Checking URL: #{@url}".colorize(:cyan)
+      puts "Checking URL: #{@url}".colorize(:cyan)
 
-      # First, get file info with HEAD request
       unless get_file_info
-        puts "❌ Failed to get file information, falling back to single request".colorize(:red)
+        puts "Failed to get file information, falling back to single request".colorize(:red)
         return download_single_request
       end
 
-      puts "📊 File size: #{format_bytes(@total_size)}".colorize(:green)
-      puts "🚀 Starting parallel download with #{@segments_count} segments...".colorize(:cyan)
+      puts "File size: #{format_bytes(@total_size)}".colorize(:green)
+      puts "Starting parallel download with #{@segments_count} segments...".colorize(:cyan)
 
-      # Create segments
       create_segments
-
-      # Download segments in parallel using fibers
       download_parallel
-
-      # Reconstruct file
       reconstruct_file
     end
 
@@ -62,10 +56,9 @@ module Seize
           if content_length = response.headers["Content-Length"]?
             @total_size = content_length.to_i64
 
-            # Check if server supports range requests
             accept_ranges = response.headers["Accept-Ranges"]?
             if accept_ranges != "bytes"
-              puts "⚠️  Server doesn't support range requests".colorize(:yellow)
+              puts "Server doesn't support range requests".colorize(:yellow)
               return false
             end
 
@@ -76,7 +69,7 @@ module Seize
 
       false
     rescue ex
-      puts "❌ Error getting file info: #{ex.message}".colorize(:red)
+      puts "Error getting file info: #{ex.message}".colorize(:red)
       false
     end
 
@@ -90,7 +83,6 @@ module Seize
         start_byte = current_pos
         end_byte = current_pos + segment_size - 1
 
-        # Add remainder to last segment
         if i == @segments_count - 1
           end_byte += remainder
         end
@@ -101,40 +93,38 @@ module Seize
     end
 
     private def download_parallel
-      # Create completion channel for fiber coordination
+      # completion channel, i always fuck this up      # Create completion channel for fiber coordination
       completion_channel = Channel(Bool).new
 
-      # Download each segment in parallel
+      # parallelize
       @segments.each_with_index do |segment, index|
         spawn do
           begin
             download_segment(segment, index)
             completion_channel.send(true)
           rescue ex
-            puts "\n❌ Segment #{index} failed: #{ex.message}".colorize(:red)
+            puts "\n Segment #{index} failed: #{ex.message}".colorize(:red)
             completion_channel.send(false)
           end
         end
       end
 
-      # Wait for all downloads to complete and show progress
       success_count = 0
       @segments.size.times do |i|
         if completion_channel.receive
           success_count += 1
         end
 
-        # Calculate and display progress
         progress = (success_count.to_f / @segments.size * 100).round(1)
         downloaded_size = @segments.select(&.downloaded).sum(&.data.size)
-        print "\r📥 Progress: #{progress}% (#{format_bytes(downloaded_size)}/#{format_bytes(@total_size)})"
+        print "\rProgress: #{progress}% (#{format_bytes(downloaded_size)}/#{format_bytes(@total_size)})"
       end
 
       if success_count != @segments.size
         raise "Failed to download all segments (#{success_count}/#{@segments.size} succeeded)"
       end
 
-      puts "\n✅ All segments downloaded successfully!".colorize(:green)
+      puts "\nAll segments downloaded successfully!".colorize(:green)
     end
 
     private def download_segment(segment : Segment, index : Int32)
@@ -160,19 +150,19 @@ module Seize
       end
     rescue ex
       segment.downloaded = false # Explicitly mark as failed
-      puts "\n❌ Error downloading segment #{index}: #{ex.message}".colorize(:red)
+      puts "\n Error downloading segment #{index}: #{ex.message}".colorize(:red)
       raise ex
     end
 
     private def reconstruct_file : Bool
       output_filename = @output_file || extract_filename
 
-      puts "🔧 Reconstructing file: #{output_filename}".colorize(:cyan)
+      puts "Reconstructing file: #{output_filename}".colorize(:cyan)
 
       File.open(output_filename, "w") do |file|
         @segments.each_with_index do |segment, index|
           unless segment.downloaded
-            puts "❌ Segment #{index} was not downloaded successfully".colorize(:red)
+            puts "Segment #{index} was not downloaded successfully".colorize(:red)
             return false
           end
 
@@ -181,13 +171,13 @@ module Seize
         end
       end
 
-      puts "🎉 File reconstructed successfully: #{output_filename}".colorize(:green)
-      puts "📁 Final size: #{format_bytes(File.size(output_filename))}".colorize(:green)
+      puts "File reconstructed successfully: #{output_filename}".colorize(:green)
+      puts "Final size: #{format_bytes(File.size(output_filename))}".colorize(:green)
       true
     end
 
     private def download_single_request : Bool
-      puts "📥 Downloading with single request...".colorize(:yellow)
+      puts "Downloading with single request...".colorize(:yellow)
 
       uri = URI.parse(@url)
       output_filename = @output_file || extract_filename
@@ -200,15 +190,15 @@ module Seize
             IO.copy(response.body_io, file)
           end
 
-          puts "✅ Single request download completed: #{output_filename}".colorize(:green)
+          puts "Single request download completed: #{output_filename}".colorize(:green)
           return true
         else
-          puts "❌ Download failed: #{response.status}".colorize(:red)
+          puts "Download failed: #{response.status}".colorize(:red)
           return false
         end
       end
     rescue ex
-      puts "❌ Download error: #{ex.message}".colorize(:red)
+      puts "Download error: #{ex.message}".colorize(:red)
       false
     end
 
@@ -243,7 +233,7 @@ module Seize
       parser.on("-s COUNT", "--segments=COUNT", "Number of parallel segments (default: 10)") do |count|
         segments_count = count.to_i
         if segments_count < 1 || segments_count > 50
-          puts "❌ Error: Segments count must be between 1 and 50".colorize(:red)
+          puts "Error: Segments count must be between 1 and 50".colorize(:red)
           exit(1)
         end
       end
@@ -266,13 +256,13 @@ module Seize
     end
 
     if url.empty?
-      puts "❌ Error: URL is required".colorize(:red)
+      puts "Error: URL is required".colorize(:red)
       puts "Usage: seize [options] URL"
       exit(1)
     end
 
-    puts "🎯 Seize v#{VERSION} - Parallel File Downloader".colorize(:magenta).bold
-    puts "=" * 50
+    puts "Seize v#{VERSION} - Parallel File Downloader".colorize(:magenta).bold
+    puts "="*50
 
     downloader = ParallelDownloader.new(url, output_file, segments_count)
     success = downloader.download
