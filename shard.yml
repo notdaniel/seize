@@ -1,0 +1,13 @@
+name: seize
+version: 0.1.0
+
+authors:
+  - Daniel Keywan Hollister <daniel.hollister@gmail.com>
+
+targets:
+  seize:
+    main: src/seize.cr
+
+crystal: '>= 1.17.1'
+
+license: MIT
